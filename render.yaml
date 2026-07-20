@@ -1,0 +1,38 @@
+# Render Blueprint Specification
+# Reference: https://render.com/docs/blueprints
+
+services:
+  # Web Service for Next.js App
+  - type: web
+    name: bharat-first
+    runtime: docker
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bharat-first-db
+          property: connectionString
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: NEXTAUTH_URL
+        sync: false
+        placeholder: "Enter your deployment URL (e.g., https://bharat-first.onrender.com)"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+        placeholder: "Enter Cloudinary Cloud Name"
+      - key: CLOUDINARY_API_KEY
+        sync: false
+        placeholder: "Enter Cloudinary API Key"
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+        placeholder: "Enter Cloudinary API Secret"
+
+databases:
+  # PostgreSQL Database
+  - name: bharat-first-db
+    plan: free
+    postgresMajorVersion: 15
