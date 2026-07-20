@@ -1,0 +1,377 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// USER & AUTHENTICATION (NextAuth compatible)
+// ==========================================
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Role enum replaced by String in SQLite
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role          String    @default("GUEST")
+  
+  accounts      Account[]
+  sessions      Session[]
+  articles      Article[]
+  comments      Comment[]
+  bookmarks     Bookmark[]
+  likes         Like[]
+  auditLogs     AuditLog[]
+  activityLogs  ActivityLog[]
+  pages         Page[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime? // Soft delete — never hard-delete users
+
+  @@index([email])
+  @@index([role])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==========================================
+// CONTENT (Articles, Shorts, Categories)
+// ==========================================
+
+// ArticleStatus enum replaced by String
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  
+  articles    Article[]
+  shorts      ShortNews[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  articles  Article[]
+}
+
+model Article {
+  id           String        @id @default(cuid())
+  title        String
+  slug         String        @unique
+  excerpt      String?
+  content      String
+  imageUrl     String?
+  readTime     Int           @default(0)
+  status       String        @default("DRAFT")
+  breaking     Boolean       @default(false)
+  featured     Boolean       @default(false)
+  isOSINT      Boolean       @default(false)
+  
+  authorId     String
+  author       User          @relation(fields: [authorId], references: [id])
+  
+  categoryId   String
+  category     Category      @relation(fields: [categoryId], references: [id])
+  
+  tags         Tag[]
+  comments     Comment[]
+  bookmarks    Bookmark[]
+  likes        Like[]
+  views        View[]
+  
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?     // Soft delete — filter with status: { not: 'DELETED' }
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([breaking])
+  @@index([featured])
+  @@index([slug])
+}
+
+// Priority enum replaced by String
+
+model ShortNews {
+  id          String   @id @default(cuid())
+  title       String
+  summary     String
+  type        String   // SIGINT, CYBER, GEOINT
+  priority    String   @default("MEDIUM")
+  location    String?
+  readCount   Int      @default(0)
+  
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([createdAt])
+}
+
+model Page {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String
+  excerpt     String?
+  seoTitle    String?
+  seoDesc     String?
+  isPublished Boolean  @default(false)
+  layout      String   @default("default") // default, full-width, minimal
+  
+  authorId    String?
+  author      User?    @relation(fields: [authorId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isPublished])
+}
+
+// ==========================================
+// ENGAGEMENT (Comments, Likes, Bookmarks)
+// ==========================================
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+  
+  isApproved Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([articleId])
+  @@index([parentId])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([userId, articleId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([userId, articleId])
+}
+
+model View {
+  id        String   @id @default(cuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  
+  ipHash    String?  // Hashed for privacy
+  userAgent String?
+  
+  createdAt DateTime @default(now())
+
+  @@index([articleId])
+  @@index([createdAt])
+}
+
+// ==========================================
+// SYSTEM & ADMIN
+// ==========================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  resource  String
+  details   String?
+  ipAddress String?
+  
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([resource])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // LOGIN, LOGOUT, SEARCH, etc
+  metadata  String?
+  
+  createdAt DateTime @default(now())
+}
+
+model Advertisement {
+  id        String   @id @default(cuid())
+  name      String
+  placement String
+  imageUrl  String
+  targetUrl String
+  active    Boolean  @default(true)
+  clicks    Int      @default(0)
+  impressions Int    @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([placement, active])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  group     String   @default("GENERAL") // GENERAL, SEO, CONTACT, SOCIAL, API, THEME
+  type      String   @default("TEXT") // TEXT, BOOLEAN, JSON, IMAGE, COLOR
+  
+  updatedAt DateTime @updatedAt
+}
+
+model Menu {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  location    String     // HEADER, FOOTER, SIDEBAR
+  items       MenuItem[]
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model MenuItem {
+  id        String   @id @default(cuid())
+  title     String
+  url       String
+  target    String   @default("_self")
+  order     Int      @default(0)
+  icon      String?
+  parentId  String?
+  parent    MenuItem?  @relation("MenuHierarchy", fields: [parentId], references: [id])
+  children  MenuItem[] @relation("MenuHierarchy")
+  
+  menuId    String
+  menu      Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+}
+
+model PageSection {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // HERO, SHORTS_GRID, LATEST_REPORTS, LIVE_WIRE, NEWSLETTER, HTML, AD
+  order       Int      @default(0)
+  isVisible   Boolean  @default(true)
+  configJson  String?  // JSON string for specific section settings (e.g. pinned article ID, background color)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Media {
+  id          String   @id @default(cuid())
+  filename    String
+  url         String
+  fileSize    Int
+  mimeType    String
+  altText     String?
+  folder      String   @default("root")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model NewsletterTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  subject   String
+  htmlBody  String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+
+  @@index([isActive])
+  @@index([createdAt])
+}

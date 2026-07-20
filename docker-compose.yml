@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:./dev.db
+      - NEXTAUTH_SECRET=paman-super-secret-auth-key-12345
+      - NEXTAUTH_URL=http://localhost:3000
+    restart: always
+    volumes:
+      - db-data:/app/prisma
+
+volumes:
+  db-data:
