@@ -1,19 +1,28 @@
 import { MetadataRoute } from 'next';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
-  // Fetch all published articles
-  const articles = await prisma.article.findMany({
-    where: { status: 'PUBLISHED' },
-    select: { id: true, updatedAt: true },
-  });
+  let articles: any[] = [];
+  let categories: any[] = [];
 
-  // Fetch all categories
-  const categories = await prisma.category.findMany({
-    select: { slug: true, updatedAt: true },
-  });
+  try {
+    // Fetch all published articles
+    articles = await prisma.article.findMany({
+      where: { status: 'PUBLISHED' },
+      select: { id: true, updatedAt: true },
+    });
+
+    // Fetch all categories
+    categories = await prisma.category.findMany({
+      select: { slug: true, updatedAt: true },
+    });
+  } catch (error) {
+    console.error('Failed to fetch sitemap data from database:', error);
+  }
 
   const articleUrls = articles.map((article) => ({
     url: `${baseUrl}/article/${article.id}`,
