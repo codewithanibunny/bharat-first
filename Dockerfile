@@ -14,6 +14,12 @@ COPY . .
 # Disable Next.js telemetry
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Receive database URL and URL build arguments from Render
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
+ARG NEXTAUTH_URL
+ENV NEXTAUTH_URL=$NEXTAUTH_URL
+
 # Generate Prisma client first so it is available during build
 RUN npx prisma generate
 RUN npm run build
